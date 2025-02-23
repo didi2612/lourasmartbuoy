@@ -44,56 +44,63 @@ const DataGraph: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const API_URL = 'http://37.60.247.110:2612/azp';
-      const API_KEY = 'azp-261211102024-aquadrox';
-
+      const API_URL = "http://100.78.31.68:2612/azp";
+      const API_KEY = "azp-261211102024-aquadrox";
+      const project = "Load Cell";
+  
       try {
         const response = await axios.get(API_URL, {
-          headers: { 'X-API-KEY': API_KEY },
+          headers: { "X-API-KEY": API_KEY },
+          params: { project }, 
         });
-
+  
         if (!response.data || response.data.length === 0) {
           console.warn("⚠️ API returned empty data!");
           return;
         }
-
-        const processedData = response.data.map((entry: any) => ({
-          timestamp: entry.timestamp || entry.created_at || null, // Handle missing timestamps
-          data: typeof entry.data === 'string' ? JSON.parse(entry.data) : entry.data,
-        }));
-
-        console.log('✅ Parsed API Data:', processedData);
-
-        setOriginalData(response.data);
-
+  
+        // Parse and filter data
+        const processedData = response.data
+          .map((entry: any) => ({
+            timestamp: entry.timestamp || entry.created_at || null,
+            data: typeof entry.data === "string" ? JSON.parse(entry.data) : entry.data,
+          }))
+          .filter((entry) => entry.timestamp !== null) // Remove invalid timestamps
+          .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()) // Sort by time
+          .slice(-50); // ✅ Keep only the last 50 records
+  
+        console.log("✅ Parsed API Data:", processedData);
+  
+        setOriginalData(processedData);
+  
         const labels = processedData.map((entry) =>
           entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : "Unknown"
         );
-
+  
         const sensorMap: { [key: string]: number[] } = {};
-
+  
         processedData.forEach((entry) => {
           if (entry.data) {
             Object.keys(entry.data).forEach((sensor) => {
               if (!sensorMap[sensor]) sensorMap[sensor] = [];
-              const value = parseFloat(entry.data[sensor]?.value || '0');
+              const value = parseFloat(entry.data[sensor]?.value || "0");
               if (!isNaN(value)) sensorMap[sensor].push(value);
             });
           }
         });
-
+  
         setChartLabels(labels);
         setChartData(sensorMap);
       } catch (error) {
-        console.error('❌ Error fetching data:', error);
+        console.error("❌ Error fetching data:", error);
       }
     };
-
+  
     fetchData();
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
   }, []);
-
+  
   const exportToExcel = () => {
     if (!startDate || !endDate) {
       alert("Error, Please select a valid date range.");
